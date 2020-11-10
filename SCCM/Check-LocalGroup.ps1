@@ -1,6 +1,6 @@
 <#
 
-This script compares any given local group's member with an array of allowed members.
+This script compares a given local group's members with an array of allowed members.
 If a member is not allowed, the script will return the member(s).
 If all members are allowed, the script will return Compliant.
 
