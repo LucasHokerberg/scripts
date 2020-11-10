@@ -12,17 +12,15 @@ Created: 2020-11-10
 #>
 
 # Define static parameters
-$strGroup = "Administratörer"
+$strGroup = "Administrators"
 $allowedMembers = @(
-                    "Administratör",
-                    "Domain Admins",
-                    "G_SCCM_LocalAdmins_SE",
-                    "clientadmin"
+                    "Administrator",
+                    "Domain Admins"
                     )
 
 # Initiate variables
 $computer = [ADSI]("WinNT://.,computer")
-$group = $computer.psbase.children.find("Administratörer")
+$group = $computer.psbase.children.find($strGroup)
 $members = $group.psbase.invoke("Members") | %{$_.GetType().InvokeMember("Name", "GetProperty", $null, $_, $null)}
 $illegalMembers = ""
 
