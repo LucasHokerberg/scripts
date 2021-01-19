@@ -36,7 +36,7 @@ Get-ClusterResource -cluster $cluster | Select Name,State | Select-Object Name,S
 # If a resource is not online
 if ($notOnline -ne "") {
 
-    Write-Host "CRITICAL: " + $notOnline
+    Write-Host "CRITICAL: $($notOnline)"
     exit 2
 
 # All nodes online
