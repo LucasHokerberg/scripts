@@ -11,37 +11,41 @@
 # -------------------------------------------------------------------------------------------------------------
 
 # Fetch parameters
-param(
-    [string] $cluster
-)
+param([string] $cluster)
 
-# Load modules
+# Define variables
+$notUp = ""
+
+# Import modules
 Import-Module FailoverClusters
 
-# Get status of all cluster nodes
-Get-ClusterNode -Cluster $cluster | Select Name,State | Sort-Object State -Descending | Select-Object Name,State | ForEach-Object {
+# Repeat for all cluster nodes
+Get-ClusterNode -cluster $cluster | Select Name,State | Select-Object Name,State | ForEach-Object {
 
     $name = $_.Name
     $state = $_.State
+    
+    # If node is not up
+    if ($state -ne "Up") {
 
-    # Node Down
-    if ($state -eq "Down") {
-
-        Write-Host "$name is $state" 
-        exit 2
-
-    # Node Paused
-    } elseif ($state -eq "Paused") {
-
-        Write-Host "$name is $state"
-        exit 1
-
-    # All nodes Online
-    } else {
-
-        Write-Host "All nodes are online!"
-        exit 0
+        # Add node to status
+        $notUp = $notUp + "$($name) is $($state)! "
     }
 }
 
-exit 2
+# If a node is not up
+if ($notUp -ne "") {
+
+    Write-Host "CRITICAL: " + $notUp
+    exit 2
+
+# All nodes online
+} else {
+
+    Write-Host "OK: All nodes are up!"
+    exit 0
+}
+
+# Unknown error
+Write-Host "UNKOWN: An unkown error occured!"
+exit 3
