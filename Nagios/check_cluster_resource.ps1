@@ -11,31 +11,41 @@
 # -------------------------------------------------------------------------------------------------------------
 
 # Fetch parameters
-param(
-    [string] $cluster
-)
+param([string] $cluster)
 
-# Load modules
+# Define variables
+$notOnline = ""
+
+# Import modules
 Import-Module FailoverClusters
 
-# Get status of all cluster resources
-Get-ClusterResource -cluster $cluster | Select Name,State | Sort-Object State -Descending | Select-Object Name,State | ForEach-Object {
+# Repeat for all resources
+Get-ClusterResource -cluster $cluster | Select Name,State | Select-Object Name,State | ForEach-Object {
 
     $name = $_.Name
     $state = $_.State
 
-    # Resource not online
+    # If resource is not online
     if ($state -ne "Online") {
 
-        Write-Host "$name is $state" 
-        exit 2
-
-    # All resources Online
-    } else {
-
-        Write-Host "All resources are online!"
-        exit 0
+        # Add resource to status
+        $notOnline = $notOnline + "$($name) is $($state)! "
     }
 }
 
-exit 2
+# If a resource is not online
+if ($notOnline -ne "") {
+
+    Write-Host "CRITICAL: " + $notOnline
+    exit 2
+
+# All nodes online
+} else {
+
+    Write-Host "OK: All resources are online!"
+    exit 0
+}
+
+# Unknown error
+Write-Host "UNKOWN: An unkown error occured!"
+exit 3
