@@ -36,7 +36,7 @@ Get-ClusterNode -cluster $cluster | Select Name,State | Select-Object Name,State
 # If a node is not up
 if ($notUp -ne "") {
 
-    Write-Host "CRITICAL: " + $notUp
+    Write-Host "CRITICAL: $($notUp)"
     exit 2
 
 # All nodes online
