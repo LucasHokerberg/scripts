@@ -110,6 +110,11 @@ if ($Content) {
         Write-Host "UNKNOWN: Content parameter is set, but Exists parameter is not set to True or False!"
         exit 3
     }
+    
+# If not, count check as OK
+} else {
+
+    $status = $status + 1
 }
 
 # If all checks are OK
