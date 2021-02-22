@@ -10,7 +10,7 @@ Usage: .\start_citrix_session.ps1 -AppName <Name of application(s) or desktop(s)
 Example: .\start_citrix_session.ps1 -AppName "My App 1","My App2","My Desktop"
 
 Created: 2021-02-17
-Author: lucas.hokerberg@gelita.com
+Author: lucas@hokerberg.com
 
 #>
 
