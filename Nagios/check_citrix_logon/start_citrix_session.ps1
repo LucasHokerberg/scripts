@@ -4,6 +4,8 @@ This script starts a Citrix session with the help of storebrowse.
 It logs the session launch time in a log file named after the application or desktop launched.
 In the Citrix session, the log_citrix_session script must be run to log the logon time and end the session.
 
+Any errors are logged in a separate error log.
+
 Usage: .\start_citrix_session.ps1 -AppName <Name of application(s) or desktop(s)>
 Example: .\start_citrix_session.ps1 -AppName "My App 1","My App2","My Desktop"
 
@@ -32,6 +34,7 @@ foreach ($app in $AppName) {
     # Abort if a session is already running
     if ((Get-Process -Name "CDViewer" -ErrorAction SilentlyContinue).Count -gt 0) {
 
+        "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix session already running! Killing session and aborting." >> "error.log"
         "Citrix session already running! Killing session and aborting." >> "$($app).log"
         Stop-Process -Name "CDViewer" -Force
         exit 1
@@ -55,6 +58,7 @@ foreach ($app in $AppName) {
     
         } else {
 
+            "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix Workspace not starting!" >> "error.log"
             "Citrix Workspace not starting!" >> "$($app).log"
             exit 1
         }
@@ -73,6 +77,7 @@ foreach ($app in $AppName) {
     
         } else {
 
+            "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix session taking too long time!" >> "error.log"
             "Citrix session taking too long time!" >> "$($app).log"
             exit 1
         }
