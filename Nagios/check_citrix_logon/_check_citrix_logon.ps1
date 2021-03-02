@@ -6,7 +6,7 @@ The script requires that the start_citrix_session script has been run and that t
 Usage: .\check_citrix_logon.ps1 -LogFile <Log file name> -LastLogon <Minutes since last logon> -Warning <Warning logon time in seconds> -Critical <Critical logon time in seconds>
 
 Created: 2021-02-17
-Author: lucas.hokerberg@gelita.com
+Author: lucas@hokerberg.com
 
 #>
 
