@@ -31,57 +31,32 @@ foreach ($app in $AppName) {
     # Start logging
     "===== BEGIN =====" > "$($app).log"
 
-    # Abort if a session is already running
-    if ((Get-Process -Name "CDViewer" -ErrorAction SilentlyContinue).Count -gt 0) {
-
-        "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix session already running! Killing session and aborting." >> "error.log"
-        "Citrix session already running! Killing session and aborting." >> "$($app).log"
-        Stop-Process -Name "CDViewer" -Force
-        exit 1
-    }
-
     # Launch new Citrix session
     "Starting new Citrix session" >> "$($app).log"
     "<start>$(Get-Date -Format "yyyy-MM-dd HH:mm:ss")</start>" >> "$($app).log"
     Start-Process -FilePath "C:\Program Files (x86)\Citrix\ICA Client\AuthManager\storebrowse.exe" -ArgumentList @("-U $($userLogin)", "-P $($userPassword)", "-D $($userDomain)", "-S `"$($app)`"", $storeUrl)
 
-    # Wait for session to start
-    "Waiting for session to start..." >> "$($app).log"
+    # Wait for session to log
+    "Waiting for session to log..." >> "$($app).log"
     $retry = 0
-    while ((Get-Process -Name "CDViewer" -ErrorAction SilentlyContinue).Count -eq 0) {
+    while ((Select-String -Path "$($app).log" -Pattern "<end>").LineNumber -lt 1) {
     
         $retry = $retry + 1
 
-        if ($retry -lt 6) {
+        if ($retry -lt 7) {
         
-            Start-Sleep -Seconds 1
+            Start-Sleep -Seconds 15
     
         } else {
 
-            "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix Workspace not starting!" >> "error.log"
-            "Citrix Workspace not starting!" >> "$($app).log"
+            "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix session taking too long time to log!" >> "$($app).err"
+            "Citrix session taking too long time to log!" >> "$($app).log"
             exit 1
         }
     }
 
-    # Wait for session to close
-    "Waiting for session to close..." >> "$($app).log"
-    $retry = 0
-    while ((Get-Process -Name "CDViewer" -ErrorAction SilentlyContinue).Count -gt 0) {
-    
-        $retry = $retry + 1
-
-        if ($retry -lt 19) {
-        
-            Start-Sleep -Seconds 5
-    
-        } else {
-
-            "$(Get-Date -Format "yyyy-MM-dd HH:mm:ss") - Citrix session taking too long time!" >> "error.log"
-            "Citrix session taking too long time!" >> "$($app).log"
-            exit 1
-        }
-    }
+    # Allow session to complete logging
+    Start-Sleep -Seconds 1
 
     # Done
     "===== END =====" >> "$($app).log"
