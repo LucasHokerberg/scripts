@@ -5,7 +5,7 @@ This script writes to a log file as a proof that the Citrix session is actually 
 Usage: .\log_citrix_session.ps1
 
 Created: 2021-02-17
-Author: lucas.hokerberg@gelita.com
+Author: lucas@hokerberg.com
 
 #>
 
