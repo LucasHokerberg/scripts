@@ -2,13 +2,14 @@
 # Script to monitor XenApp load on shared VDAs.
 # NSClient must run as a user with read access to the XenApp farm.
 #
+# Created: 2019-07-31
+# Author: lucas@hokerberg.com
+#
 # Usage:
 # .\check_xenapp_load.ps1 -Warning <WarningThreshold> -Critical <CriticalThreshold>
 #
 # Example:
 # .\check_xenapp_load.ps1 -Warning 80 -Critical 90
-#
-# Author: lucas@hokerberg.com
 # -------------------------------------------------------------------------------------------------------------
 
 # Fetch parameters
@@ -17,7 +18,7 @@ param (
     [int] $Critical
 )
 
-# Load modules
+# Load required modules
 Add-PSSnapin Citrix*
 
 # Clear old errors
@@ -35,6 +36,11 @@ try {
 }
 
 # Successfully got load
+
+$returnCritical = ""
+$returnWarning = ""
+$returnOk = ""
+
 if (!$error) {
 
     # Loop for each VDA
@@ -46,39 +52,36 @@ if (!$error) {
         # If load is critical
         if ($($vda.LoadIndex/100) -ge $Critical) {
         
-            $returnCritical = "$returnCritical $($vda.HostedMachineName) has $load% load"
-            $returnPerf = "$returnPerf $($vda.HostedMachineName)=$load;$Warning;$Critical;0"
+            $returnCritical = "$($returnCritical) $($vda.HostedMachineName) has $($load)% load!"
      
          # If load is warning
          } elseif ($($vda.LoadIndex/100) -ge $Warning) {
         
-            $returnWarning = "$returnWarning $($vda.HostedMachineName) has $load% load"
-            $returnPerf = "$returnPerf $($vda.HostedMachineName)=$load;$Warning;$Critical;0"
+            $returnWarning = "$($returnWarning) $($vda.HostedMachineName) has $($load)% load!"
      
          # If load is OK
          } elseif ($($vda.LoadIndex/100) -lt $Warning) {
 
-            $returnOk = "$returnOk $($vda.HostedMachineName) has $load% load"
-            $returnPerf = "$returnPerf $($vda.HostedMachineName)=$load;$Warning;$Critical;0"
+            $returnOk = "$($returnOk) $($vda.HostedMachineName) has $($load)% load."
         }
     }
 
     # If critical
     if ($returnCritical) {
 
-        Write-Host "Critical:$returnCritical |$returnPerf"
+        Write-Host "Critical:$($returnCritical)"
         exit 2
 
     # If warning
     } elseif ($returnWarning) {
     
-        Write-Host "Warning:$returnWarning |$returnPerf"
+        Write-Host "Warning:$($returnWarning)"
         exit 1
 
     # If OK
     } elseif ($returnOk) {
     
-        Write-Host "OK:$returnOk |$returnPerf"
+        Write-Host "OK:$($returnOk)"
         exit 0
 
     # If no status at all
