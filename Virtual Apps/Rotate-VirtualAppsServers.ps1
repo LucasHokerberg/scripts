@@ -50,7 +50,7 @@ foreach ($server in $Active) {
     # Power on server and wait for registration
     $i = 0
     New-BrokerHostingPowerAction -MachineName $server -Action TurnOn
-    while ((Get-BrokerMachine -MachineName $env:userdomain\$server).RegistrationState -ne "Registered") {
+    while ((Get-BrokerMachine -HostedMachineName $server).RegistrationState -ne "Registered") {
         
         $i++
         Start-Sleep -Seconds 15
@@ -59,19 +59,29 @@ foreach ($server in $Active) {
         if ($i -eq 16) {
             
             [string[]]$smtpTo = $smtpTo.Split(",")
-            Send-MailMessage -From $smtpFrom -To $smtpTo -Subject "Virtual Apps Server Rotation" -Body "The Virtual Apps server rotation was aborted. The server $server never registered." -SmtpServer $smtpServer
+            Send-MailMessage `
+                -From $smtpFrom `
+                -To $smtpTo `
+                -SmtpServer $smtpServer `
+                -Subject "Virtual Apps Server Rotation" `
+                -Body "The Virtual Apps server rotation was aborted. The server $($server) never registered."
             exit
         }
     }
 
     # Exit maintenance
-    Set-BrokerMachineMaintenanceMode -InputObject $env:userdomain\$server $false
+    Set-BrokerMachineMaintenanceMode -InputObject "$($env:userdomain)\$($server)" $false
 
     # Abort if server is still in maintenance mode
-    if (-not (Get-BrokerMachine -MachineName $env:userdomain\$server -InMaintenanceMode $false)) {
+    if (-not (Get-BrokerMachine -HostedMachineName $server -InMaintenanceMode $false)) {
 
         [string[]]$smtpTo = $smtpTo.Split(",")
-        Send-MailMessage -From $smtpFrom -To $smtpTo -Subject "Virtual Apps Server Rotation" -Body "The Virtual Apps server rotation was aborted. The server $server is still in maintenance mode." -SmtpServer $smtpServer
+        Send-MailMessage `
+            -From $smtpFrom `
+            -To $smtpTo `
+            -SmtpServer $smtpServer `
+            -Subject "Virtual Apps Server Rotation" `
+            -Body "The Virtual Apps server rotation was aborted. The server $($server) is still in maintenance mode."
         exit
     }
 }
@@ -80,13 +90,18 @@ foreach ($server in $Active) {
 foreach ($server in $Standby) {
 
     # Enter maintenance
-    Set-BrokerMachineMaintenanceMode -InputObject $env:userdomain\$server $true
+    Set-BrokerMachineMaintenanceMode -InputObject "$($env:userdomain)\$($server)" $true
 
     # Abort if server is still not in maintenance mode
-    if (-not (Get-BrokerMachine -MachineName $env:userdomain\$server -InMaintenanceMode $true)) {
+    if (-not (Get-BrokerMachine -HostedMachineName $server -InMaintenanceMode $true)) {
 
         [string[]]$smtpTo = $smtpTo.Split(",")
-        Send-MailMessage -From $smtpFrom -To $smtpTo -Subject "Virtual Apps Server Rotation" -Body "The Virtual Apps server rotation was aborted. The server $server could not enter maintenance mode." -SmtpServer $smtpServer
+        Send-MailMessage `
+            -From $smtpFrom `
+            -To $smtpTo `
+            -SmtpServer $smtpServer `
+            -Subject "Virtual Apps Server Rotation" `
+            -Body "The Virtual Apps server rotation was aborted. The server $($server) could not enter maintenance mode."
         exit
     }
 }
@@ -116,7 +131,7 @@ foreach ($server in $Standby) {
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
-            -Text "Varning 1 av 3.`n`n$msg"
+            -Text "Varning 1 av 3.`n`n$($msg)"
     }
 }
 
@@ -137,7 +152,7 @@ foreach ($server in $Standby) {
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
-            -Text "Varning 2 av 3.`n`n$msg"
+            -Text "Varning 2 av 3.`n`n$($msg)"
     }
 }
 
@@ -158,7 +173,7 @@ foreach ($server in $Standby) {
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
-            -Text "Varning 3 av 3.`n`n$msg"
+            -Text "Varning 3 av 3.`n`n$($msg)"
     }
 }
 
@@ -172,7 +187,21 @@ foreach ($server in $Standby) {
     New-BrokerHostingPowerAction -MachineName $server -Action Shutdown
 }
 
+# Get current server status
+$status = Get-BrokerMachine -DesktopKind Shared | Select-Object @{N="Server";E={$_.HostedMachineName}}, @{N="Maintenance Mode";E={$_.InMaintenanceMode}}, @{N="Power State";E={$_.PowerState}}, @{N="Status";E={$_.RegistrationState}}, @{N="Sessions";E={$_.SessionCount}} | ConvertTo-Html -Head "<style>table { padding-right: 25px; text-align: left }</style>"
+
 # Send email notification
 [string[]]$smtpTo = $smtpTo.Split(",")
-Send-MailMessage -From $smtpFrom -To $smtpTo -Subject "Virtual Apps Server Rotation" -Body "The Virtual Apps server rotation is complete.`n`nNew active servers: $Active`n`nNew standby servers: $Standby`n`nPlease verify!" -SmtpServer $smtpServer
+Send-MailMessage `
+    -From $smtpFrom `
+    -To $smtpTo `
+    -SmtpServer $smtpServer `
+    -BodyAsHtml `
+    -Subject "Virtual Apps Server Rotation" `
+    -Body "<h1>Virtual Apps Server Rotation</h1>
+           <p>The Virtual Apps server rotation is complete.</p>
+           <p><strong>New active servers:</strong> $($Active)<br>
+           <strong>New standby servers:</strong> $($Standby)</p>
+           <h2>Current server status</h2>
+           $($status)"
 exit
