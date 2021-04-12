@@ -183,8 +183,20 @@ Start-Sleep -Seconds $msgInterval
 # Repeat for each server to be standby after the rotation
 foreach ($server in $Standby) {
 
-    # Power off
+    # Power off server and wait for power off
+    $i = 0
     New-BrokerHostingPowerAction -MachineName $server -Action Shutdown
+    while ((Get-BrokerMachine -HostedMachineName $server).PowerState -ne "Off") {
+        
+        $i++
+        Start-Sleep -Seconds 15
+
+        # Continue even if server is not powering off
+        if ($i -eq 16) {
+            
+            continue
+        }
+    }
 }
 
 # Get current server status
