@@ -1,86 +1,95 @@
-# -------------------------------------------------------------------------------------------------------------
-# This script checks if a backup has been taken on a VM in vSphere by looking at a custom attribute set by Veeam.
-# The script parses the time stamp and checks if the backup is taken within the desired time frame.
-#
-# Usage:
-# .\check_vm_backup.ps1 -vmName <VM name> -lastBackup <Time in minutes> -exclude <VM name> -username <Username to vCenter> -password <Password to vCenter>
-#
-# Arguments:
-# vmName - The name of a VM to check. Can be several VMs separated by comma. Enter * to check all VMs.
-# lastBackup - Number of minutes when the latest backup must be taken.
-# exclude - The name (or part of) of a VM to exclude from the check. Can be several VMs seperated by comma. Only applicable if vmName is set to *.
-# username - The username for a user with at least read-permissions in vCenter.
-# password - The password for the above user.
-#
-# Examples:
-# .\check_vm_backup.ps1 -vmName 'DC01','DC02','APP01' -lastBackup 60 -username 'nagios' -password 'P4$$w0rd'
-# .\check_vm_backup.ps1 -vmName * -lastBackup 1440 -exclude 'DC', 'FS01','FS02' -username 'nagios' -password 'P4$$w0rd'
-#
-# Author: lucas@hokerberg.com
-# -------------------------------------------------------------------------------------------------------------
+<#
+
+This script checks if a backup has been taken on a VM in vSphere by looking at a custom attribute set by Veeam.
+The script parses the time stamp and checks if the backup is taken within the desired time frame.
+
+Usage:
+.\check_vm_backup.ps1 -VMName <Name> -Exclude <Name> -LastBackup <Minutes> -Attribute <Name> -Server <Name/IP> -Username <Username> -Password <Password>
+
+Arguments:
+VMName - The name of a VM to check. Can be several VMs separated by comma. Enter * to check all VMs.
+Exclude - The name (or part of) of a VM to exclude from the check. Can be several VMs seperated by comma. Only applicable if VMName is set to *.
+LastBackup - Number of minutes since the latest backup must be taken.
+Attribute - name of the attribute used by Veeam. Could be a custom named attribute or the default Notes attribute.
+Server - DNS name or IP address to the vCenter server or ESXi host.
+Username - The username for a user with at least read-permissions on the server.
+Password - The password for the above user.
+
+Examples:
+.\check_vm_backup.ps1 -VMName DC01,DC02,APP01 -LastBackup 60 -Attribute 'Veeam Backup' -Server vc01.domain.local -Username nagios -Password P4$$w0rd
+.\check_vm_backup.ps1 -VMName * -Exclude DC,FS01,FS02 -LastBackup 1440 -Attribute Notes -Server 192.168.100.10 -Username nagios -Password P4$$w0rd
+
+Author: lucas@hokerberg.com
+
+#>
 
 # Define parameters
 param (
-    [array]$vmName,
-    [int]$lastBackup,
-    [array]$exclude,
-    [string]$username,
-    [string]$password
+    [array]$VMName,
+    [array]$Exclude,
+    [int]$LastBackup,
+    [string]$Attribute,
+    [string]$Server,
+    [string]$Username,
+    [string]$Password
 )
-
-# Define static variables
-$vcServer = "vcenter.domain.local"
 
 # Disable CEIP and certificate warning
 Set-PowerCLIConfiguration -Scope User -ParticipateInCEIP $false -Confirm:$false | Out-Null
 Set-PowerCLIConfiguration -InvalidCertificateAction Ignore -Confirm:$false | Out-Null
 
-# Connect to vCenter
-Connect-VIServer -Server $vcServer -User $username -Password $password | Out-Null
+# Connect to vSphere
+Connect-VIServer -Server $Server -User $Username -Password $Password | Out-Null
 
 # If all VMs are to be checked
-if ($vmName -eq "*") {
+if ($VMName -eq "*") {
 
     # Convert exclude array to regex
-    $exclude = $exclude -Join '|'
+    $Exclude = $Exclude -Join "|"
     
     # Loop for each VM in vSphere
-    foreach ($vmInfo in Get-VM | Where-Object -FilterScript {( $_.Name -NotMatch $exclude )}) {
-
-        # If the VM is not listed in exclude
-        if ($exclude -NotContains $vmInfo) {
+    foreach ($vmInfo in Get-VM | Where-Object -FilterScript {( $_.Name -notmatch $Exclude )}) {
         
-            # Parse out the backup time from Veeam custom attribute
-            $backupTime = $vmInfo.CustomFields | Select-String -Pattern "Veeam Backup:.*Time:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
+        # Attribute is Notes
+        if ($Attribute -eq "Notes") {
 
-            # If the backup time is missing
-            if (!$backupTime) {
-
-                $missing = "$missing '$vmInfo'"
+            # Extract backup time from notes
+            $backupTime = $vmInfo.Notes | Select-String -Pattern "Last backup:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
             
-            # If a backup time is set
-            } else {
+        # Attribute is not Notes (i.e. custom attribute)
+        } else {
 
-                # Convert backupTime to date
-                $backupTime = [datetime]::parseexact($backupTime, "yyyy-MM-dd HH:mm:ss", $null)
-
-                # If the backup is too old
-                $minTime = (Get-Date).AddMinutes(-$lastBackup)
-                if ($backupTime -lt $minTime) {
-
-                    $old = "$old '$vmInfo' ($backupTime)"
-                
-                # If the backup is OK
-                } elseif ($backupTime -gt $minTime) {
-                    
-                    # Keep in count how many VMs are backed up
-                    $n = $n + 1
-                }
-            }
-
-            # Unset $backupTime
-            Remove-Variable -name backupTime
+            # Extract backup time from custom attribute
+            $backupTime = $vmInfo.CustomFields | Where-Object -FilterScript {( $_.Key -eq $Attribute)}
+            $backupTime = $backupTime.Value | Select-String -Pattern "Last backup:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
         }
+
+        # If backup time is missing
+        if (!$backupTime) {
+
+            $missing = "$($missing) '$($vmInfo.Name)'"
+            
+        # If a backup time is set
+        } else {
+
+            # Convert backupTime to date
+            $backupTime = [datetime]::parseexact($backupTime, "yyyy-MM-dd HH:mm:ss", $null)
+
+            # If backup is too old
+            $minTime = (Get-Date).AddMinutes(-$LastBackup)
+            if ($backupTime -lt $minTime) {
+
+                $old = "$($old) '$($vmInfo.Name)' ($($backupTime))"
+                
+            # If backup is OK
+            } elseif ($backupTime -gt $minTime) {
+                    
+                # Keep in count how many VMs are OK
+                $n = $n + 1
+            }
+        }
+
+        Remove-Variable -Name backupTime
     }
 
 # If specific VMs are to be checked
@@ -92,13 +101,24 @@ if ($vmName -eq "*") {
         # Get VM info
         $vmInfo = Get-VM -Name $vm
 
-        # Parse out the backup time from Veeam custom attribute
-        $backupTime = $vmInfo.CustomFields | Select-String -Pattern "Veeam Backup:.*Time:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
+        # Attribute is Notes
+        if ($Attribute -eq "Notes") {
+
+            # Extract backup time from notes
+            $backupTime = $vmInfo.Notes | Select-String -Pattern "Last backup:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
+            
+        # Attribute is not Notes (i.e. custom attribute)
+        } else {
+
+            # Extract backup time from custom attribute
+            $backupTime = $vmInfo.CustomFields | Where-Object -FilterScript {( $_.Key -eq $Attribute)}
+            $backupTime = $backupTime.Value | Select-String -Pattern "Last backup:.*\[([0-9]*-[0-9]*-[0-9]* [0-9]*:[0-9]*:[0-9]*)]" | % {$($_.matches.groups[1])}
+        }
         
-        # If the backup time is missing
+        # If backup time is missing
         if (!$backupTime) {
 
-            $missing = "$missing '$vmInfo'"
+            $missing = "$($missing) '$($vmInfo.Name)'"
             
         # If a backup time is set
         } else {
@@ -106,27 +126,26 @@ if ($vmName -eq "*") {
             # Convert backupTime to date
             $backupTime = [datetime]::parseexact($backupTime, "yyyy-MM-dd HH:mm:ss", $null)
 
-            # If the backup is too old
+            # If backup is too old
             $minTime = (Get-Date).AddMinutes(-$lastBackup)
             if ($backupTime -lt $minTime) {
 
-                $old = "$old '$vmInfo' ($backupTime)"
+                $old = "$($old) '$($vmInfo.Name)' ($($backupTime))"
                 
-            # If the backup is OK
+            # If backup is OK
             } elseif ($backupTime -gt $minTime) {
                     
-                # Keep in count how many VMs are backed up
+                # Keep in count how many VMs are OK
                 $n = $n + 1
             }
         }
 
-        # Unset $backupTime
-        Remove-Variable -name backupTime
+        Remove-Variable -Name backupTime
     }
 }
 
-# Disconnect from vCenter
-Disconnect-VIServer $vcServer -Confirm:$false
+# Disconnect from vSphere
+Disconnect-VIServer $Server -Confirm:$false
 
 # If VMs are without backup
 if ($missing) {
@@ -140,7 +159,7 @@ if ($missing) {
     Write-Host "Critical: The following servers have old backups:$old!"
     exit 2
 
-# If all VMs are backed up
+# If all VMs are OK
 } elseif ($n -ge 1) {
 
     Write-Host "OK: $n servers have valid backups!"
