@@ -9,7 +9,7 @@ Examples:
 ./check_cluster_node.ps1 -Instance MSSQL
 ./check_cluster_node.ps1
 
-Author: lucas.hokerberg@gelita.com
+Author: lucas@hokerberg.com
 Created: 2021-06-08
 
 #>
