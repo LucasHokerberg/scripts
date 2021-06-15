@@ -66,9 +66,6 @@ netsh winhttp reset proxy
 Write-Host "Deleting BITS jobs..."
 Get-BitsTransfer | Remove-BitsTransfer
 
-Write-Host "Installing Windows Update Agent..."
-wusa Windows8-RT-KB2937636-x64 /quiet
-
 Write-Host "Starting services..."
 Start-Service -Name BITS
 Start-Service -Name appidsvc
