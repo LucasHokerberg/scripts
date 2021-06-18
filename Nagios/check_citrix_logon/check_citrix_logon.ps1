@@ -40,7 +40,7 @@ Start-Process -FilePath "C:\Program Files (x86)\Citrix\ICA Client\AuthManager\st
 
 # Wait for session to log
 $retry = 0
-$maxRetry = 7
+$maxRetry = ($Critical+10)/10
 
 while ((Get-Content -Path "$($AppName).log") -eq $null) {
     
@@ -49,7 +49,7 @@ while ((Get-Content -Path "$($AppName).log") -eq $null) {
     if ($retry -lt $maxRetry) {
         
         Write-Host "Waiting for session to log (retry $($retry) of $($maxRetry))..."
-        Start-Sleep -Seconds 15
+        Start-Sleep -Seconds 10
     
     } else {
 
