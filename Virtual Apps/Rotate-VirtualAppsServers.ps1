@@ -3,7 +3,7 @@
 This script "rotates" Virtual Apps servers. I.e. the following:
 1. Boot up standby servers and take them out of maintenance mode
 2. Put active servers in maintenance mode
-3. Inform users on active servers to sign out
+3. Inform users on active servers to sign out (the script will send out a message with a standard text, plus any optional text, three times periodically during the delay time.)
 4. Shut down active servers
 
 If a server is not booting up, the script will abort and send out a mail notification.
@@ -12,34 +12,82 @@ After a successfull rotation, the script will send out a mail notification.
 Author: lucas@hokerberg.com
 
 Usage:
-.\Rotate-VirtualAppsServers.ps1 -Active <Servers> -Standby <Servers> -Delay <Minutes> -Message <Filename>
+.\Rotate-VirtualAppsServers.ps1 -Config <INI File>
 
 Arguments:
-Active - List of servers to be powered on and active after the rotation (seperated by comma).
-Standby - List of servers to shutdown and put as standby after the rotation (separated by comma).
-Delay - Delay in minutes until the active servers will shutdown.
-Message - Relative path to a text file containing an extra message to be sent out to sessions on servers to be set in standby.
-
-Notification:
-The script will send out a message with a standard text, plus any optional text, three times periodically during the delay time.
+Config - Path to the INI file with parameters
 
 Example:
-.\Rotate-VirtualAppsServers.ps1 -Active VDA01,VDA02 -Standby VDA03,VDA04 -Delay 60 -Message info.txt
+.\Rotate-VirtualAppsServers.ps1 -Config MySettings.ini
+
+- INI File -
+
+[Global]
+gDelay=<Delay in minutes until the active servers will shutdown>
+gMessage=<Relative path to a text file containing an extra message to be sent out to sessions on servers to be set in standby>
+gInterval=<Weekly or Monthly (used to determine if Even and Odd should be calculated based on week number or month)>
+
+[Even]
+eActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
+eStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
+
+[Odd]
+oActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
+oStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
 
 #>
 
 # Fetch parameters
 param (
-    [array] $Active,
-    [array] $Standby,
-    [int] $Delay,
-    [string] $Message
+    [string] $Config
 )
+
+# Define INI parameters
+Get-Content $Config | ForEach-Object -Begin {$c=@{}} -Process { $k = [regex]::split($_,"="); if (($k[0].CompareTo("") -ne 0) -and ($k[0].StartsWith("[") -ne $True)) { $c.Add($k[0], $k[1]) } }
+$Delay = $c.gDelay
+$Message = $c.gMessage
 
 # Define static parameters
 $smtpFrom = "no-reply@domain.com" # Sender address
 $smtpTo = @("logs@domain.com") # Send mail to (separate multiple recipients with comma)
 $smtpServer = "smtp.domain.com" # Your SMTP server
+
+# Define Active and Standby servers
+if ($c.gInterval -eq "Weekly") {
+
+    if ((Get-Date -UFormat %V) % 2 -eq 0 ) {
+
+        # Even week
+        $Active = $c.eActive -split ","
+        $Standby = $c.eStandby -split ","
+
+    } elseif ((Get-Date -UFormat %V) % 2 -eq 1 ) {
+
+        # Odd week
+        $Active = $c.oActive -split ","
+        $Standby = $c.oStandby -split ","
+    }
+
+} elseif ($c.gInterval -eq "Monthly") {
+
+    if ((Get-Date -UFormat %m) % 2 -eq 0 ) {
+
+        # Even month
+        $Active = $c.eActive -split ","
+        $Standby = $c.eStandby -split ","
+
+    } elseif ((Get-Date -UFormat %m) % 2 -eq 1 ) {
+
+        # Odd month
+        $Active = $c.oActive -split ","
+        $Standby = $c.oStandby -split ","
+    }
+
+} else {
+
+    # Abort if bad config
+    exit
+}
 
 # Load required modules
 Add-PSSnapin Citrix*
