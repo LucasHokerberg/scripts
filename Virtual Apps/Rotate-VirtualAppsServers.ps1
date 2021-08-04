@@ -229,7 +229,7 @@ foreach ($server in $Standby) {
 Start-Sleep -Seconds $msgInterval
 
 # Repeat for each server to be standby after the rotation
-foreach ($server in $Standby) {
+:powerOff foreach ($server in $Standby) {
 
     # Power off server and wait for power off
     $i = 0
@@ -242,7 +242,7 @@ foreach ($server in $Standby) {
         # Continue even if server is not powering off
         if ($i -eq 16) {
             
-            continue
+            continue powerOff
         }
     }
 }
