@@ -23,17 +23,17 @@ Example:
 - INI File -
 
 [Global]
-gDelay=<Delay in minutes until the active servers will shutdown>
-gMessage=<Relative path to a text file containing an extra message to be sent out to sessions on servers to be set in standby>
-gInterval=<Weekly or Monthly (used to determine if Even and Odd should be calculated based on week number or month)>
+Delay=<Delay in minutes until the active servers will shutdown>
+Message=<Relative path to a text file containing an extra message to be sent out to sessions on servers to be set in standby>
+Interval=<Weekly or Monthly (used to determine if Even and Odd should be calculated based on week number or month)>
 
 [Even]
-eActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
-eStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
+EvenActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
+EvenStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
 
 [Odd]
-oActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
-oStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
+OddActive=<List of servers to be powered on and active after the rotation (seperated by comma)>
+OddStandby=<List of servers to shutdown and put as standby after the rotation (separated by comma)>
 
 #>
 
@@ -44,50 +44,61 @@ param (
 
 # Define INI parameters
 Get-Content $Config | ForEach-Object -Begin {$c=@{}} -Process { $k = [regex]::split($_,"="); if (($k[0].CompareTo("") -ne 0) -and ($k[0].StartsWith("[") -ne $True)) { $c.Add($k[0], $k[1]) } }
-$Delay = $c.gDelay
-$Message = $c.gMessage
+$Delay = $c.Delay
+$Message = $c.Message
 
 # Define static parameters
 $smtpFrom = "no-reply@domain.com" # Sender address
-$smtpTo = @("logs@domain.com") # Send mail to (separate multiple recipients with comma)
-$smtpServer = "smtp.domain.com" # Your SMTP server
+$smtpTo = @("administrator@domain.com") # Send mail to (separate multiple recipients with comma)
+$smtpServer = "mail.domain.com" # Your SMTP server
+$logFile = "C:\Scripts\Rotate-VirtualAppsServers.log" # Full path to log file
+
+# Start logging
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Starting new rotation using '$($Config)' ini file." > $logFile
 
 # Define Active and Standby servers
-if ($c.gInterval -eq "Weekly") {
+if ($c.Interval -eq "Weekly") {
+
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Interval is weekly" >> $logFile
 
     if ((Get-Date -UFormat %V) % 2 -eq 0 ) {
 
         # Even week
-        $Active = $c.eActive -split ","
-        $Standby = $c.eStandby -split ","
+        $Active = $c.EvenActive -split ","
+        $Standby = $c.EvenStandby -split ","
 
     } elseif ((Get-Date -UFormat %V) % 2 -eq 1 ) {
 
         # Odd week
-        $Active = $c.oActive -split ","
-        $Standby = $c.oStandby -split ","
+        $Active = $c.OddActive -split ","
+        $Standby = $c.OddStandby -split ","
     }
 
-} elseif ($c.gInterval -eq "Monthly") {
+} elseif ($c.Interval -eq "Monthly") {
+
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Interval is monthly" >> $logFile
 
     if ((Get-Date -UFormat %m) % 2 -eq 0 ) {
 
         # Even month
-        $Active = $c.eActive -split ","
-        $Standby = $c.eStandby -split ","
+        $Active = $c.EvenActive -split ","
+        $Standby = $c.EvenStandby -split ","
 
     } elseif ((Get-Date -UFormat %m) % 2 -eq 1 ) {
 
         # Odd month
-        $Active = $c.oActive -split ","
-        $Standby = $c.oStandby -split ","
+        $Active = $c.OddActive -split ","
+        $Standby = $c.OddStandby -split ","
     }
 
 } else {
 
     # Abort if bad config
-    exit
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Bad ini file. Aborting!" >> $logFile
+    exit 1
 }
+
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Active servers: $($Active) Standby servers: $($Standby)" >> $logFile
 
 # Load required modules
 Add-PSSnapin Citrix*
@@ -97,11 +108,16 @@ foreach ($server in $Active) {
     
     # Power on server and wait for registration
     $i = 0
+
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Powering on server." >> $logFile
     New-BrokerHostingPowerAction -MachineName $server -Action TurnOn
+
     while ((Get-BrokerMachine -HostedMachineName $server).RegistrationState -ne "Registered") {
         
         $i++
-        Start-Sleep -Seconds 15
+
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Waiting for registration..." >> $logFile
+        Start-Sleep -Seconds 25
 
         # Abort if server is not registering
         if ($i -eq 16) {
@@ -113,12 +129,15 @@ foreach ($server in $Active) {
                 -SmtpServer $smtpServer `
                 -Subject "Virtual Apps Server Rotation" `
                 -Body "The Virtual Apps server rotation was aborted. The server $($server) never registered."
-            exit
+
+            Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Timeout waiting for registration. Aborting rotation!" >> $logFile
+            exit 1
         }
     }
 
     # Exit maintenance
     Set-BrokerMachineMaintenanceMode -InputObject "$($env:userdomain)\$($server)" $false
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Server registered. Exiting maintenance mode." >> $logFile
 
     # Abort if server is still in maintenance mode
     if (-not (Get-BrokerMachine -HostedMachineName $server -InMaintenanceMode $false)) {
@@ -130,7 +149,9 @@ foreach ($server in $Active) {
             -SmtpServer $smtpServer `
             -Subject "Virtual Apps Server Rotation" `
             -Body "The Virtual Apps server rotation was aborted. The server $($server) is still in maintenance mode."
-        exit
+        
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Server still in maintenance mode. Aborting rotation!" >> $logFile
+        exit 1
     }
 }
 
@@ -138,6 +159,7 @@ foreach ($server in $Active) {
 foreach ($server in $Standby) {
 
     # Enter maintenance
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Entering maintenance mode." >> $logFile
     Set-BrokerMachineMaintenanceMode -InputObject "$($env:userdomain)\$($server)" $true
 
     # Abort if server is still not in maintenance mode
@@ -150,22 +172,28 @@ foreach ($server in $Standby) {
             -SmtpServer $smtpServer `
             -Subject "Virtual Apps Server Rotation" `
             -Body "The Virtual Apps server rotation was aborted. The server $($server) could not enter maintenance mode."
-        exit
+        
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Server still not in maintenance mode. Aborting rotation!" >> $logFile
+        exit 1
     }
 }
 
 # Calculate rotation time and message interval
 $rotateTime = (Get-Date).AddMinutes($Delay)
 $msgInterval = $Delay*60/3
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Rotation time: $($rotateTime)" >> $logFile
 
 # If message argument is set
 if ($Message) {
 
     # Get message file content
     $msg = Get-Content $Message | Out-String
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Using '$($Message)' as message file." >> $logFile
 }
 
 # -- FIRST MESSAGE INTERVAL --
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - First message interval." >> $logFile
+
 # Repeat for each server to be standby after the rotation
 foreach ($server in $Standby) {
 
@@ -176,6 +204,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
@@ -187,6 +216,8 @@ foreach ($server in $Standby) {
 Start-Sleep -Seconds $msgInterval
 
 # -- SECOND MESSAGE INTERVAL --
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Second message interval." >> $logFile
+
 # Repeat for each server to be standby after the rotation
 foreach ($server in $Standby) {
 
@@ -197,6 +228,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
@@ -208,6 +240,8 @@ foreach ($server in $Standby) {
 Start-Sleep -Seconds $msgInterval
 
 # -- THIRD MESSAGE INTERVAL --
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Third message interval." >> $logFile
+
 # Repeat for each server to be standby after the rotation
 foreach ($server in $Standby) {
 
@@ -218,6 +252,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
@@ -233,15 +268,21 @@ Start-Sleep -Seconds $msgInterval
 
     # Power off server and wait for power off
     $i = 0
+
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Shutting down server." >> $logFile
     New-BrokerHostingPowerAction -MachineName $server -Action Shutdown
+
     while ((Get-BrokerMachine -HostedMachineName $server).PowerState -ne "Off") {
         
         $i++
+
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Waiting for powering off..." >> $logFile
         Start-Sleep -Seconds 15
 
         # Continue even if server is not powering off
         if ($i -eq 16) {
             
+            Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Server still not powered off. Continuing to next server." >> $logFile
             continue powerOff
         }
     }
@@ -264,4 +305,6 @@ Send-MailMessage `
            <strong>New standby servers:</strong> $($Standby)</p>
            <h2>Current server status</h2>
            $($status)"
-exit
+
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Rotation complete!" >> $logFile
+exit 0
