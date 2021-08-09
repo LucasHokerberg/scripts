@@ -204,7 +204,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
-        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
@@ -228,7 +228,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
-        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
@@ -252,7 +252,7 @@ foreach ($server in $Standby) {
     if ($sessions) {
 
         # Send message
-        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sending message to sessions." >> $logFile
+        Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - [$($server)] Sending message to sessions." >> $logFile
         Send-BrokerSessionMessage $sessions `
             -MessageStyle Exclamation `
             -Title "Servicefönster kl. $($rotateTime.ToString("HH:mm")) (om $([math]::Round(($rotateTime-(Get-Date)).TotalMinutes)) minuter)" `
