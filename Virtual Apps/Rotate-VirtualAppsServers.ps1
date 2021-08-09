@@ -188,7 +188,7 @@ if ($Message) {
 
     # Get message file content
     $msg = Get-Content $Message | Out-String
-    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Using '$($Message)' as message file." >> $logFile
+    Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Using $($Message) as message file." >> $logFile
 }
 
 # -- FIRST MESSAGE INTERVAL --
