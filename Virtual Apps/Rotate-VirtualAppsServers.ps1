@@ -44,7 +44,7 @@ param (
 
 # Define INI parameters
 Get-Content $Config | ForEach-Object -Begin {$c=@{}} -Process { $k = [regex]::split($_,"="); if (($k[0].CompareTo("") -ne 0) -and ($k[0].StartsWith("[") -ne $True)) { $c.Add($k[0], $k[1]) } }
-$Delay = $c.Delay
+[int]$Delay = $c.Delay
 $Message = $c.Message
 
 # Define static parameters
@@ -181,7 +181,7 @@ foreach ($server in $Standby) {
 # Calculate rotation time and message interval
 $rotateTime = (Get-Date).AddMinutes($Delay)
 $msgInterval = $Delay*60/3
-Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Rotation time: $($rotateTime)" >> $logFile
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Delay: $($Delay) minutes. Rotation time: $($rotateTime). Message interval: $($msgInterval) seconds." >> $logFile
 
 # If message argument is set
 if ($Message) {
@@ -213,6 +213,7 @@ foreach ($server in $Standby) {
 }
 
 # Wait until second message interval
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sleeping for $($msgInterval) seconds..." >> $logFile
 Start-Sleep -Seconds $msgInterval
 
 # -- SECOND MESSAGE INTERVAL --
@@ -237,6 +238,7 @@ foreach ($server in $Standby) {
 }
 
 # Wait until third message interval
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sleeping for $($msgInterval) seconds..." >> $logFile
 Start-Sleep -Seconds $msgInterval
 
 # -- THIRD MESSAGE INTERVAL --
@@ -261,6 +263,7 @@ foreach ($server in $Standby) {
 }
 
 # Wait until rotation time
+Write-Output "$(Get-Date -Format "yyyy-MM-dd HH:mm") - Sleeping for $($msgInterval) seconds..." >> $logFile
 Start-Sleep -Seconds $msgInterval
 
 # Repeat for each server to be standby after the rotation
