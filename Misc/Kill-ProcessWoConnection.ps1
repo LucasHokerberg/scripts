@@ -5,7 +5,7 @@ If no TCP connection is found, the script will retry for a given ammount of seco
 If there's still no connection, the script will kill the process.
 
 Created: 2023-04-27
-Author: lucas.hokerberg@gelita.com
+Author: lucas@hokerberg.com
 
 Usage:
 .\Kill-ProcessWoConnection.ps1 -ProcessName <Process Name> -Retry <Seconds> -Exclude <Comma separated list of processes>
