@@ -4,8 +4,8 @@ Script to search for and add missing PTR records for all static A records in a g
 If a reverse lookup zone does not exist for an A record, the script will throw an error and simply skip that record.
 Create missing reverse zones and re-run the script to create the missing PTR records.
 
+Created: 2023-05-11
 Author: lucas@hokerberg.com
-Date: 2023-05-11
 
 #>
 
